@@ -112,8 +112,20 @@ def safe_cast(x, y):
     t = 'complex' if (x.dtype.is_complex or y.dtype.is_complex) else 'float'
     s = max(x.dtype.itemsize, y.dtype.itemsize)
     dtype = '{}{}'.format(t, s * 8)
+    if dtype.startswith('float'):
+        if '32' in dtype:
+            dtype = torch.float
+        elif '64' in dtype:
+            dtype = torch.double
+    elif dtype.startswith('complex'):
+        if '64' in dtype:
+            dtype = torch.complex64
+        elif '128' in dtype:
+            dtype = torch.complex128
+    assert dtype in [torch.float, torch.double, torch.complex64, torch.complex128], "failed to cast {} to {}".format(x.dtype, y.dtype)
+    return x.type_as(torch.empty(1, dtype=dtype)), y.type_as(torch.empty(1, dtype=dtype))
+    # return x.astype(dtype), y.astype(dtype)
 
-    return x.to(dtype), y.to(dtype)
 
 
 class AttrDict(dict):

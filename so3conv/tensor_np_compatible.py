@@ -61,7 +61,10 @@ def conj(*args, **kwargs):
     return fun('conj', *args, **kwargs)
 
 def transpose(*args, **kwargs):
-    return fun('transpose', *args, **kwargs)
+    return fun(['permute', 'transpose'], *args, **kwargs)
+
+
+# need to call
 
 def reshape(*args, **kwargs):
     return fun('reshape', *args, **kwargs)

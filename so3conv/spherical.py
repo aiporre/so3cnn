@@ -83,7 +83,9 @@ def sph_harm_transform(f , mode = 'DH' , harmonics =None):
 
     a = DHaj(n, mode)
 
-    f = f * np.array(a)[np.newaxis, :]
+    # f = f * np.array(a)[np.newaxis, :]
+    if is_tensor:
+        f = f * torch.tensor(a, dtype=torch.float32).unsqueeze(0)
 
     real = is_real_sft(harmonics)
 
@@ -106,6 +108,8 @@ def sph_harm_inverse(c, harmonics=None):
     dtype = torch.float32 if real else c[1][1].dtype
     if harmonics is None:
         harmonics = sph_harm_all(n, real=real)
+        if istorch(c):
+            harmonics = [torch.tensor(h, dtype=torch.complex64) for h in harmonics]
 
     if isinstance(c[0][0], torch.Tensor):
         f = torch.zeros((n, n), dtype=dtype)
@@ -259,6 +263,7 @@ def sph_conv_batch(f, g,
     cf = cf[..., na]
     if isinstance(cg, torch.Tensor) and isinstance(cf, torch.Tensor):
         cg, cf = safe_cast(cg, cf)
+        factor = torch.tensor(factor, dtype=torch.float32)
         cfg = factor * cf * cg
     else:
         cfg = factor * cf * cg
