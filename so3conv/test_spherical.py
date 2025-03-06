@@ -211,7 +211,6 @@ class TestSpherical(TestCase):
         ang = np.random.rand(3)*2*np.pi
 
         # check if (pi f * g) == pi(f * g)
-        # TODO: implement sph_conv
         rot_conv = sphrot_shtools(sph_conv(f, g), ang)
         conv_rot = sph_conv(sphrot_shtools(f, ang), g)
 
