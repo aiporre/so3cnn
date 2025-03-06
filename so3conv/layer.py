@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
-from . import util
-from . import spherical
+from so3conv import util
+from so3conv import spherical
 
 class SphConv(nn.Module):
     def __init__(self, in_channels, out_channels, use_bias=True, n_filter_params=0):
@@ -81,3 +81,30 @@ def area_weights(x, invert=False):
     else:
         x *= torch.sin(torch.tensor(phi)).unsqueeze(0).unsqueeze(0).unsqueeze(3)
     return x
+
+# test internal main
+def main():
+    n = 2
+    in_channels = 1
+    out_channels = 1
+    use_bias = True
+    n_filter_params = 0
+    sphconv = SphConv(in_channels, out_channels, use_bias, n_filter_params)
+    print(sphconv)
+
+    params = util.AttrDict()
+    params.out_channels = 1
+    params.batch_norm = False
+    params.nonlin = 'relu'
+    params.use_bias = True
+    params.filter = 'sphconv'
+    params.filter_params = 0
+    params.filter_size = 5
+    params.filter_stride = 1
+    params.filter_pool = 2
+    params.filter_nonlin = 'relu'
+    params.filter_batch_norm = False
+    params.filter_use_bias = True
+
+if __name__ == '__main__':
+    main()
