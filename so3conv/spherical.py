@@ -79,13 +79,15 @@ def sph_harm_transform(f , mode = 'DH' , harmonics =None):
     if harmonics is None:
         harmonics = sph_harm_all(n)
         if is_tensor:
-            harmonics = [torch.tensor(h, dtype=torch.complex64) for h in harmonics]
+            harmonics = [torch.tensor(h, dtype=torch.complex128) for h in harmonics]
 
     a = DHaj(n, mode)
 
     # f = f * np.array(a)[np.newaxis, :]
     if is_tensor:
-        f = f * torch.tensor(a, dtype=torch.float32).unsqueeze(0)
+        f = f * torch.tensor(a, dtype=torch.float).unsqueeze(0)
+    else:
+        f = f * np.array(a)[np.newaxis, :]
 
     real = is_real_sft(harmonics)
 

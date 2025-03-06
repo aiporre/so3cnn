@@ -228,12 +228,13 @@ class TestSpherical(TestCase):
         weights = torch.nn.Parameter(torch.randn(kernel_size, dtype=torch.complex128))
         ker = torch.cat([weights.unsqueeze(0).repeat(32, 1),
                          torch.zeros((n, 27), dtype=torch.complex128)], dim=1)
+        print('first convution in tensors')
         conv = sph_conv(inp, ker)
-
         conv_v, ker_v = conv.detach().numpy(), ker.detach().numpy()
-        assert np.allclose(ker, ker_v), "ker {} != {}".format(ker, ker_v)
-        # conv_v2 = sph_conv(f, ker_v)
-        # assert np.allclose(conv_v, conv_v2), "conv {} != {}".format(conv_v, conv_v2)
+        print('second convolution in numps')
+        inp_v = inp.detach().numpy()
+        conv_v2 = sph_conv(inp_v, ker_v)
+        assert np.allclose(conv_v, conv_v2), "conv {} != {}".format(conv_v, conv_v2)
 
     def test_sph_conv_batch(self):
         """ Test batch spherical convolution """
