@@ -51,57 +51,57 @@ def sphrot_shtools(f, x, lmax=None, latcols=True):
     return f_r
 
 
-def tfrecord2np(fname, shape, dtype='float32', get_meta=False, max_records=np.inf):
-    """ Load tfrecord containing serialized tensors x and y as numpy arrays. """
-    import tensorflow as tf
-    example = tf.train.Example()
-    X = []
-    Y = []
-    # dataset may contain angles
-    A = []
-    meta = []
-    for i, record in enumerate(tf.python_io.tf_record_iterator(fname)):
-        example.ParseFromString(record)
-        f = example.features.feature
-        X.append(np.frombuffer(f['x'].bytes_list.value[0], dtype=dtype))
-        Y.append(f['y'].int64_list.value[0])
-        if f.get('a', None) is not None:
-            A.append(np.frombuffer(f['a'].bytes_list.value[0], dtype=dtype))
-        if get_meta:
-            meta.append({'fname': f['fname'].bytes_list.value[0],
-                         'idrot': f['idrot'].int64_list.value[0]})
+# def tfrecord2np(fname, shape, dtype='float32', get_meta=False, max_records=np.inf):
+#     """ Load tfrecord containing serialized tensors x and y as numpy arrays. """
+#     import tensorflow as tf
+#     example = tf.train.Example()
+#     X = []
+#     Y = []
+#     # dataset may contain angles
+#     A = []
+#     meta = []
+#     for i, record in enumerate(tf.python_io.tf_record_iterator(fname)):
+#         example.ParseFromString(record)
+#         f = example.features.feature
+#         X.append(np.frombuffer(f['x'].bytes_list.value[0], dtype=dtype))
+#         Y.append(f['y'].int64_list.value[0])
+#         if f.get('a', None) is not None:
+#             A.append(np.frombuffer(f['a'].bytes_list.value[0], dtype=dtype))
+#         if get_meta:
+#             meta.append({'fname': f['fname'].bytes_list.value[0],
+#                          'idrot': f['idrot'].int64_list.value[0]})
+#
+#         if i >= max_records - 1:
+#             break
+#
+#     if len(A) > 0:
+#         # dataset contain angle channel;
+#         # load 'a' and 'x', fix shapes and concatenate into channels
+#         shapea = (*shape[:-1], 1)
+#         A = np.stack(A).reshape(shapea)
+#         shape = (*shape[:-1], shape[-1] - 1)
+#         X = np.stack(X).reshape(shape)
+#         X = np.concatenate([X, A], axis=-1)
+#     else:
+#         X = np.stack(X).reshape(shape)
+#
+#     Y = np.stack(Y)
+#
+#     assert len(X) == len(Y)
+#
+#     if get_meta:
+#         return X, Y, meta
+#     else:
+#         return X, Y
 
-        if i >= max_records - 1:
-            break
-
-    if len(A) > 0:
-        # dataset contain angle channel;
-        # load 'a' and 'x', fix shapes and concatenate into channels
-        shapea = (*shape[:-1], 1)
-        A = np.stack(A).reshape(shapea)
-        shape = (*shape[:-1], shape[-1] - 1)
-        X = np.stack(X).reshape(shape)
-        X = np.concatenate([X, A], axis=-1)
-    else:
-        X = np.stack(X).reshape(shape)
-
-    Y = np.stack(Y)
-
-    assert len(X) == len(Y)
-
-    if get_meta:
-        return X, Y, meta
-    else:
-        return X, Y
-
-
-def tf_config():
-    """ Default tensorflow config. """
-    import tensorflow as tf
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-
-    return config
+#
+# def tf_config():
+#     """ Default tensorflow config. """
+#     import tensorflow as tf
+#     config = tf.ConfigProto()
+#     config.gpu_options.allow_growth = True
+#
+#     return config
 
 
 def safe_cast(x, y):
