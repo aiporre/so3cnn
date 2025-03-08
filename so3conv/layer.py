@@ -7,39 +7,85 @@ from so3conv import util
 from so3conv import spherical
 
 class SphConv(nn.Module):
-    def __init__(self, in_channels, out_channels, use_bias=True, n_filter_params=0):
+    def __init__(self, in_channels, out_channels, n, use_bias=True, n_filter_params=0):
         super(SphConv, self).__init__()
         self.use_bias = use_bias
         self.n_filter_params = n_filter_params
         self.in_channels = in_channels
         self.out_channels = out_channels
 
-        n = 2  # Assuming n is 2 for simplicity, adjust as needed
+        # n = 2  # Assuming n is 2 for simplicity, adjust as needed
+        # as explained in the paper (Esteves et al 2018,) this is the standard initialization
+        # they dein the variac to stay constant for every layer
+        # in_channels is because we sum over the input channels
+        # 2pi is the integral of the spherical harmonics over the so(3)
+        # the 2 takes into account the non-zero mean
+        # as in paper (He et al. 2015)
         std = 2. / (2 * np.pi * np.sqrt((n // 2) * in_channels))
 
         if n_filter_params == 0:
+            # filters for all the n spherical frequencies
             self.weights = nn.Parameter(torch.randn(in_channels, n // 2, out_channels) * std)
         else:
+            # induces the zonal filters
             nw_in = min(n_filter_params, n // 2)
             self.weights = nn.Parameter(torch.randn(in_channels, nw_in, out_channels) * std)
-            xw_in = np.linspace(0, 1, nw_in)
-            xw_out = np.linspace(0, 1, n // 2)
-            id_out = np.searchsorted(xw_in, xw_out)
-            subws = []
-            for i, x in zip(id_out, xw_out):
-                subws.append(self.weights[:, i-1, :] + (self.weights[:, i, :] - self.weights[:, i-1, :]) * (x - xw_in[i-1]) / (xw_in[i] - xw_in[i-1]))
-            self.weights = torch.stack(subws, dim=1).unsqueeze(1).unsqueeze(3)
+            self.xw_in = np.linspace(0, 1, nw_in)
+            self.xw_out = np.linspace(0, 1, n // 2)
+            self.id_out = np.searchsorted(self.xw_in, self.xw_out)
+            # subws = []
+            # # does the interpolation
+            # for i, x in zip(id_out, xw_out):
+            #     subws.append(self.weights[:, i-1, :] + (self.weights[:, i, :] - self.weights[:, i-1, :]) * (x - xw_in[i-1]) / (xw_in[i] - xw_in[i-1]))
+            # self.weights = torch.stack(subws, dim=1).unsqueeze(1).unsqueeze(3)
 
         if use_bias:
             self.bias = nn.Parameter(torch.zeros(1, 1, 1, out_channels))
         else:
             self.bias = torch.zeros(1, 1, 1, out_channels)
 
-    def forward(self, inputs):
-        conv = spherical.sph_conv_batch(inputs, self.weights)
+    def forward(self, inputs, *args,**kwargs):
+        if self.n_filter_params == 0:
+            h = self.weights.unsqueeze(1).unsqueeze(3)
+        else:
+            # interpolate
+            subws = []
+            # does the interpolation
+            for i, x in zip(self.id_out, self.xw_out):
+                w_minus_1 = self.weights[:, i-1, :]
+                w_zero = self.weights[:, i, :]
+                alpha = (x - self.xw_in[i-1]) / (self.xw_in[i] - self.xw_in[i-1])
+                subws.append(w_minus_1 + (w_zero - w_minus_1) * alpha)
+                # subws.append(self.weights[:, i-1, :] + (self.weights[:, i, :] - self.weights[:, i-1, :]) * (x - xw_in[i-1]) / (xw_in[i] - xw_in[i-1]))
+            h = torch.stack(subws, dim=1).unsqueeze(1).unsqueeze(3)
+        conv = spherical.sph_conv_batch(inputs, h, *args, **kwargs)
         if self.use_bias:
             conv = conv + self.bias
         return conv
+
+class WeightedGlobalAvgPool(nn.Module):
+    """ Global average pooling with weights
+    the weights are the sin of the latitude according to Esteves et al. 2018
+    this is used instead of the standard global average pooling
+
+    params: dictionary of parameters from text
+    pool_wga: avg/sum/max
+    """
+    def __init__(self, params):
+
+        self.pool_func = getattr(F, params.pool_func)
+        super(WeightedGlobalAvgPool, self).__init__()
+
+    def forward(self, inputs):
+        weights = self._loggitud_weights(inputs)
+        return self.pool_func(inputs * weights, dim=(2, 3), keepdim=True)
+
+    @staticmethod
+    def _loggitud_weights(x):
+        n = x.shape[1]
+        phi, theta = util.sph_sample(n)
+        phi += np.diff(phi)[0] / 2
+        return torch.sin(torch.tensor(phi)).unsqueeze(0).unsqueeze(0).unsqueeze(3)
 
 class Block(nn.Module):
     def __init__(self, params, fun, is_training=None):
