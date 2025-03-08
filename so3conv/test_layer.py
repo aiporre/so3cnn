@@ -2,7 +2,7 @@ from  unittest import TestCase
 
 import torch
 
-from so3conv.layer import SphConv
+from so3conv.layer import SphConv, WeightedGlobalAvgPool
 from so3conv.params import AttrDict
 
 
@@ -66,4 +66,41 @@ class TestLayer(TestCase):
         print('loss', loss)
         loss.backward()
         print('backward works')
+
+    def test_wga_pool(self):
+        param = AttrDict()
+        param.pool_func = 'max'
+        n = 32
+        batch_size = 10
+        in_channels = 16
+        # crate inptu  these in theory are spheres with n points of course spherical grids :)
+        x = torch.rand(batch_size,n,n,in_channels, requires_grad=True)
+        # create layer
+        wga = WeightedGlobalAvgPool(param)
+        # test forward
+        y = wga(x)
+        # create small fc
+        print('y input , ' , y.shape)
+        print('forward works')
+        # test backward
+        loss = torch.abs(y.sum())
+        print('loss', loss)
+        loss.backward()
+        print('backward works')
+
+        # test avg
+        param.pool_func = 'avg'
+        wga = WeightedGlobalAvgPool(param)
+        # test forward
+        y = wga(x)
+        # create small fc
+        print('y input , ' , y.shape)
+        print('forward works')
+        # test backward
+        loss = torch.abs(y.sum())
+        print('loss', loss)
+        loss.backward()
+
+
+
 

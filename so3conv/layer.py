@@ -69,19 +69,29 @@ class WeightedGlobalAvgPool(nn.Module):
     this is used instead of the standard global average pooling
 
     params: dictionary of parameters from text
-    pool_wga: avg/sum/max
+    pool_wga: avg/max
     """
     def __init__(self, params):
-
-        self.pool_func = getattr(F, params.pool_func)
         super(WeightedGlobalAvgPool, self).__init__()
+        if params.pool_func == 'avg':
+            self.pool_func =nn.AdaptiveAvgPool2d(1)
+        elif params.pool_func == 'max':
+            self.pool_func = nn.AdaptiveMaxPool2d(1)
+        else:
+            raise ValueError('Unknown pool function: {}'.format(params.pool_func))
 
-    def forward(self, inputs):
-        weights = self._loggitud_weights(inputs)
-        return self.pool_func(inputs * weights, dim=(2, 3), keepdim=True)
+
+    def forward(self, x: torch.Tensor):
+        weights = self._loggitud_weights(x)
+        x = x * weights
+        # permute to batch, channel, height, width
+        x = x.permute(0, 3, 1, 2)
+        x = self.pool_func(x)
+        x = x.squeeze(3).squeeze(2)
+        return x
 
     @staticmethod
-    def _loggitud_weights(x):
+    def _loggitud_weights(x: torch.Tensor) -> torch.Tensor:
         n = x.shape[1]
         phi, theta = util.sph_sample(n)
         phi += np.diff(phi)[0] / 2
@@ -127,30 +137,3 @@ def area_weights(x, invert=False):
     else:
         x *= torch.sin(torch.tensor(phi)).unsqueeze(0).unsqueeze(0).unsqueeze(3)
     return x
-
-# test internal main
-def main():
-    n = 2
-    in_channels = 1
-    out_channels = 1
-    use_bias = True
-    n_filter_params = 0
-    sphconv = SphConv(in_channels, out_channels, use_bias, n_filter_params)
-    print(sphconv)
-
-    params = util.AttrDict()
-    params.out_channels = 1
-    params.batch_norm = False
-    params.nonlin = 'relu'
-    params.use_bias = True
-    params.filter = 'sphconv'
-    params.filter_params = 0
-    params.filter_size = 5
-    params.filter_stride = 1
-    params.filter_pool = 2
-    params.filter_nonlin = 'relu'
-    params.filter_batch_norm = False
-    params.filter_use_bias = True
-
-if __name__ == '__main__':
-    main()
