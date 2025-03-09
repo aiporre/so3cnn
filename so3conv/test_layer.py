@@ -1,5 +1,4 @@
 from  unittest import TestCase
-
 import torch
 
 from so3conv.layer import SphConv, WeightedGlobalAvgPool
@@ -100,6 +99,29 @@ class TestLayer(TestCase):
         loss = torch.abs(y.sum())
         print('loss', loss)
         loss.backward()
+    # test two parameters requires_grad=False and requires_grad=True
+    def test_wga_pool_spectral(self, requires_grad=False):
+        param = AttrDict()
+        param.pool_func = 'spectral'
+        n = 32
+        batch_size = 10
+        in_channels = 16
+        # crate inptu  these in theory are spheres with n points of course spherical grids :)
+        x = torch.rand(batch_size,n,n,in_channels, requires_grad=requires_grad)
+        # create layer
+        wga = WeightedGlobalAvgPool(param)
+        # harmonics =
+        # test forward
+        y = wga(x)
+        # create small fc
+        print('y input , ' , y.shape)
+        print('forward works')
+        # test backward
+        loss = torch.abs(y.sum())
+        print('loss', loss)
+        if requires_grad:
+            loss.backward()
+            print('backward works')
 
 
 

@@ -73,22 +73,39 @@ class WeightedGlobalAvgPool(nn.Module):
     """
     def __init__(self, params):
         super(WeightedGlobalAvgPool, self).__init__()
+        self.pool_name = params.pool_func
         if params.pool_func == 'avg':
             self.pool_func =nn.AdaptiveAvgPool2d(1)
         elif params.pool_func == 'max':
             self.pool_func = nn.AdaptiveMaxPool2d(1)
+        elif params.pool_func == 'spectral':
+            self.pool_func = self._spectral_pool
+
         else:
             raise ValueError('Unknown pool function: {}'.format(params.pool_func))
 
 
-    def forward(self, x: torch.Tensor):
+    def forward(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
         weights = self._loggitud_weights(x)
         x = x * weights
         # permute to batch, channel, height, width
-        x = x.permute(0, 3, 1, 2)
-        x = self.pool_func(x)
-        x = x.squeeze(3).squeeze(2)
-        return x
+        if self.pool_name in ['avg', 'max']:
+            # the max and avg are the same thing
+            x = x.permute(0, 3, 1, 2)
+            x = self.pool_func(x)
+            x = x.squeeze(3).squeeze(2)
+            return x
+        else:
+            # this for spectral we don't need permutations and so on
+            return self.pool_func(x, *args, **kwargs)
+
+    @staticmethod
+    def _spectral_pool(x: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        x_sft = spherical.sph_harm_transform_batch(x, m0_only=True, *args, **kwargs)
+        x_sft = torch.sum(x_sft ** 2, dim=(1,3))
+        x_sft = torch.real(x_sft)
+        return x_sft.flatten(start_dim=1)
+
 
     @staticmethod
     def _loggitud_weights(x: torch.Tensor) -> torch.Tensor:
@@ -96,6 +113,7 @@ class WeightedGlobalAvgPool(nn.Module):
         phi, theta = util.sph_sample(n)
         phi += np.diff(phi)[0] / 2
         return torch.sin(torch.tensor(phi)).unsqueeze(0).unsqueeze(0).unsqueeze(3)
+
 
 class Block(nn.Module):
     def __init__(self, params, fun, is_training=None):
