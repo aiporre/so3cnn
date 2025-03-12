@@ -10,6 +10,38 @@ from so3conv import util
 from so3conv.tensor_np_compatible import istorch
 from so3conv import tensor_np_compatible as tnp
 
+class SphericalHarmonics:
+    """ Spherical harmonics class. """
+    def __init__(self, n, as_torchvar=False, real=False):
+        self.n = n
+        self.as_torchvar = as_torchvar
+        self.real = real
+        self.harmonics = sph_harm_all(n, as_torchvar=as_torchvar, real=real)
+
+    def transform(self, f):
+        return sph_harm_transform(f, harmonics=self.harmonics)
+
+    def inverse(self, c):
+        return sph_harm_inverse(c, harmonics=self.harmonics)
+
+    def transform_batch(self, f, m0_only=False):
+        return sph_harm_transform_batch(f, harmonics=self.harmonics, m0_only=m0_only)
+
+    def inverse_batch(self, c):
+        return sph_harm_inverse_batch(c, harmonics=self.harmonics)
+
+    def conv(self, f, g):
+        return sph_conv(f, g, harmonics=self.harmonics)
+
+    def conv_batch(self, f, g, spectral_pool=0, harmonics_low=None):
+        return sph_conv_batch(f, g, harmonics_or_legendre=self.harmonics, spectral_pool=spectral_pool, harmonics_or_legendre_low=harmonics_low)
+
+    def __repr__(self):
+        return "SphericalHarmonics(n={}, as_torchvar={}, real={})".format(self.n, self.as_torchvar, self.real)
+
+    def __str__(self):
+        return self.__repr__()
+
 # cache outputs; 2050 > 32*64
 @functools.lru_cache(maxsize=2050, typed=False)
 def sph_harm_lm(l, m, n):

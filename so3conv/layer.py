@@ -5,14 +5,18 @@ import numpy as np
 
 from so3conv import util
 from so3conv import spherical
+from so3conv.spherical import SphericalHarmonics
+
 
 class SphConv(nn.Module):
-    def __init__(self, in_channels, out_channels, n, use_bias=True, n_filter_params=0):
+    def __init__(self, in_channels, out_channels, n, use_bias=True, n_filter_params=0, spectral_pool=0, real=True):
         super(SphConv, self).__init__()
         self.use_bias = use_bias
         self.n_filter_params = n_filter_params
         self.in_channels = in_channels
         self.out_channels = out_channels
+        self.real = real
+        self.spectral_pool = spectral_pool
 
         # n = 2  # Assuming n is 2 for simplicity, adjust as needed
         # as explained in the paper (Esteves et al 2018,) this is the standard initialization
@@ -44,7 +48,14 @@ class SphConv(nn.Module):
         else:
             self.bias = torch.zeros(1, 1, 1, out_channels)
 
-    def forward(self, inputs, *args,**kwargs):
+        self.spherical_harmonics = SphericalHarmonics(n, as_torch=True, real=self.real)
+
+        if self.spherical_pooling > 0:
+            self.spherical_harmonics_low = SphericalHarmonics(n // 2, as_torch=True, real=self.real)
+        else:
+            self.spherical_harmonics_low = None
+
+    def forward(self, inputs, *args,**kwargs): # **kwaargs will cotainnthe harmonsi to ube use din lie sphe conv batch
         if self.n_filter_params == 0:
             h = self.weights.unsqueeze(1).unsqueeze(3)
         else:
@@ -58,7 +69,8 @@ class SphConv(nn.Module):
                 subws.append(w_minus_1 + (w_zero - w_minus_1) * alpha)
                 # subws.append(self.weights[:, i-1, :] + (self.weights[:, i, :] - self.weights[:, i-1, :]) * (x - xw_in[i-1]) / (xw_in[i] - xw_in[i-1]))
             h = torch.stack(subws, dim=1).unsqueeze(1).unsqueeze(3)
-        conv = spherical.sph_conv_batch(inputs, h, *args, **kwargs)
+        # TODO: here goes the the spectral pooling flag and connect the sherical harmoinxlow
+        conv = self.spherical_harmonics.conv_batch(inputs, h, spectral_pool=self.spectral_pool, harmonics_low=self.spherical_harmonics_low) # this is the convolution with harmonics tensor in in kwars
         if self.use_bias:
             conv = conv + self.bias
         return conv
